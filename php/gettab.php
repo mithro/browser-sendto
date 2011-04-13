@@ -7,18 +7,6 @@ json();
 debug('Got Request');
 check_common_prereq();
 
-$lock = "getlock-$user-$chromeid";
-$startedat = time();
-while (!$memcache->add($lock, $_SERVER['REMOTE_ADDR'], 5)) {
-	debug("Another client has the lock! ". $memcache->get($lock));
-	sleep(1);
-
-	if ((time() - $startedat) > $TIMEOUT) {
-		debug("Memcache lock timed out!");
-		exit();
-	}
-}
-
 // Are we confirming a send tab?
 $jsonp = trim(@$_GET['callback']);
 
@@ -27,7 +15,7 @@ $confirmurl = trim(@$_GET['confirmurl']);
 if (strlen($confirmurl) > 0) {
 	$key = "confirm-$user-$chromeid-" . md5($confirmurl);
 	debug("Confirming '$key'");
-	$memcache->set($key, time(), 0, $MEMCACHE_TIMEOUT);
+	$memcache->set($key, time(), $MEMCACHE_TIMEOUT);
 	debug("Confirmed");
 }
 
@@ -40,24 +28,12 @@ while ((time() - $startedat) < $TIMEOUT) {
 
 	$key = "url-$user-$chromeid";
 	$urldata = $memcache->get($key);
-	if ($memcache->getResultCode() != Memcached::RES_NOTFOUND) {
-		debug("Got a url!");
-		debug('getting again "'.$memcache->get($key).'"');
-
-		$result = "$urldata";
-		debug("Deleting 1 '$key'");
-		debug($memcache->delete($key));
-		debug($memcache->getResultCode());
-		debug($memcache->get($key));
-		debug("Deleting 2 '$key'");
-		debug($memcache->delete($key));
-		debug($memcache->getResultCode());
-		debug($memcache->get($key));
-		debug("Deleting 3 '$key'");
-		debug($memcache->delete($key));
-		debug($memcache->getResultCode());
-		debug($memcache->get($key));
-		break;
+	if ($memcache->getResultCode() == Memcached::RES_SUCCESS) {
+		if (strlen(trim($urldata)) > 0) {
+			$result = $urldata;
+			$memcache->delete($key);
+			break;
+		}
 	} else {
 		debug("No url yet, looking for '$key'");
 		sleep(1);
@@ -67,6 +43,5 @@ while ((time() - $startedat) < $TIMEOUT) {
 if ($jsonp) {
 	$result = "$jsonp($result);";
 }
-$memcache->delete($lock);
 send_and_close($result);
 

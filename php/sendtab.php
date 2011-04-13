@@ -11,19 +11,15 @@ debug(var_export($_POST, true));
 
 // Get the ID of the chrome instance we are sending too
 $sendto = trim(@$_POST['sendto']);
-if (strlen($sendto) == 0) { ?>
-No sendto id!
-<?php 
-	exit();
+if (strlen($sendto) == 0) {
+	error("No sendto id!");
 }
 debug("Sending to '$sendto'");
 
 // Get the url data to send
 $urldata = trim($_POST['urldata']);
-if (strlen($urldata) == 0) { ?>
-No url data to send!
-<?php 
-	exit();
+if (strlen($urldata) == 0) {
+	error("No url data to send!");
 }
 
 // Decode the urldata json, and confirm that it's valid...
@@ -48,19 +44,19 @@ debug("Decoded data:\n" . var_export($urldata_decoded, true));
 
 // We only keep the URL for 15 seconds as if it hasn't been sent by then, something is borked...
 $key = "url-$user-$sendto";
-debug("Adding data at '$key'");
 $startedat = time();
-do {
+while (true) {
 	$memcache->add($key, $urldata, $MEMCACHE_TIMEOUT);
-
+	if ($memcache->getResultCode() != Memcached::RES_NOTSTORED) {
+		debug("Success!");
+		break;
+	}
 	debug("Memcache rejected add");
-	sleep(1);
 
 	if ((time() - $startedat) > $TIMEOUT) {
-		debug("Memcache add timed out!");
-		exit();
+		error("Memcache add timed out!");
 	}
-} while ($m->getResultCode() != Memcached::RES_SUCCESS);
+}
 
 // Are we confirming a send tab?
 if (!@$urldata_decoded['confirm']) {
@@ -76,7 +72,7 @@ if (!@$urldata_decoded['confirm']) {
 	$startedat = time();
 	while ((time() - $startedat) < $TIMEOUT) {
 		$confirmtime = $memcache->get($key);
-		if ($memcache->getResultCode() != Memcached::RES_NOTFOUND) {
+		if ($memcache->getResultCode() == Memcached::RES_SUCCESS) {
 			debug("Got confirmation!");
 			send_and_close(json_encode($confirmtime));
 			$memcache->delete($key);

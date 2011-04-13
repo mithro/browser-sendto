@@ -56,6 +56,11 @@ function debug($msg) {
 	}
 }
 
+function error($msg) {
+	send_and_close("error('$msg')");
+	exit();
+}
+
 
 $user = null;
 $chromeid = null;
@@ -69,10 +74,8 @@ function check_common_prereq() {
 
 	// What is this chrome instance logged in as?
 	$user = trim(@$_COOKIE['BrowserSendTo-User']);
-	if (strlen($user) == 0) { ?>
-Not logged in!
-	<?php 
-		exit();
+	if (strlen($user) == 0) {
+		error("Not logged in!");
 	}
 	debug("My user is '$user'");
 
@@ -81,10 +84,8 @@ Not logged in!
 
 	// Get the ID of this chrome instance
 	$chromeid = trim(@$_GET['id'] . @$_POST['id']);
-	if (strlen($chromeid) == 0) { ?>
-No chrome id!
-	<?php
-		exit();
+	if (strlen($chromeid) == 0) {
+		error("No chrome id!");
 	}
 	debug("My chrome ID is '$chromeid'");
 }

@@ -1,5 +1,5 @@
-var sendTabLocation = 'http://localhost/sendtab.php';
-var getTabLocation = 'http://localhost/gettab.php';
+var sendTabLocation = 'http://sendto.mithis.net/sendtab.php';
+var getTabLocation = 'http://sendto.mithis.net/gettab.php';
 var myID = 'me';
 
 function time() {
@@ -66,11 +66,7 @@ chrome.extension.onConnect.addListener(function(port) {
 var errors = 0;
 var lastrunat = 0;
 function getTab(incoming) {
-	console.log(time() + " getTab");
 	lastrunat = time();
-
-	console.log('incoming:');
-	console.log(incoming);
 
 	var outgoing = {'id': myID, 'callback': 'getTab'};
 	if (!$.isEmptyObject(incoming)) {
@@ -86,9 +82,6 @@ function getTab(incoming) {
 	} else {
 		errors += 1;
 	}
-
-	console.log('outgoing:');
-	console.log(outgoing);
 
 	$.ajax({'url': getTabLocation,
 	        'dataType': 'script',
