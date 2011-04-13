@@ -1,0 +1,11 @@
+application: browser-tosend
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /watchme
+  script: watchme.py
+
+- url: /
+  script: app.py
