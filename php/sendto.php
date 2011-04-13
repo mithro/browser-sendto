@@ -1,47 +1,80 @@
 <?php
 
-include "common.php"
+include "common.php";
 
 nocache();
+json();
 check_common_prereq();
 
+debug("Got request");
+
 // Get the ID of the chrome instance we are sending too
-$chromeid = $_GET['sendto'];
-if (strlen(trim($chromeid)) == 0) { ?>
+$sendto = @$_POST['sendto'];
+if (strlen(trim($sendto)) == 0) { ?>
 No sendto id!
-<?php }
+<?php 
+	exit();
+}
+debug("Sending to '$sendto'");
 
 // Get the url data to send
 $urldata = $_POST['urldata'];
 if (strlen(trim($urldata)) == 0) { ?>
-No url data to send! (POST)
-<?php }
+No url data to send!
+<?php 
+	exit();
+}
 
 // Decode the urldata json, and confirm that it's valid...
 $urldata_decoded = json_decode($urldata, true);
-// FIXME: Do the check here
-if (!$urldata_decoded) { ?>
+if (json_last_error() != JSON_ERROR_NONE) { ?>
 Was unable to decode the url data!
-<?php }
+<?php 
+	// Define the errors.
+	$json_errors = array(
+	    JSON_ERROR_NONE => 'No error has occurred',
+	    JSON_ERROR_DEPTH => 'The maximum stack depth has been exceeded',
+	    JSON_ERROR_CTRL_CHAR => 'Control character error, possibly incorrectly encoded',
+	    JSON_ERROR_SYNTAX => 'Syntax error',
+	);
+
+	debug($json_errors[json_last_error()]);
+	exit();
+}
+debug("Incoming JSON decoded okay");
 
 // We only keep the URL for 15 seconds as if it hasn't been sent by then, something is borked...
-while (!$memcache->add("url-$user-$chromeid", $urldata, MEMCACHE_COMPRESSED, 15))
+$startedat = time();
+debug("Added at 'url-$user-$sendto'");
+while (!$memcache->add("url-$user-$sendto", $urldata, MEMCACHE_COMPRESSED, $MEMCACHE_TIMEOUT)) {
+	debug("Memcache rejected add");
 	sleep(1);
 
+	if ((time() - $startedat) > $TIMEOUT) {
+		debug("Memcache add timed out!");
+		exit();
+	}
+}
+
 // Are we confirming a send tab?
-if ($urldata_decoded['confirm']) {
+if (!$urldata_decoded['confirm']) {
+	debug("No confirmation requested. Returning straight away.");
 	send_and_close(json_encode(-1));
 } else {
-	$url = $urldata_decoded['url'];
+	debug("Confirmation requested. Waiting.");
+	debug("$url");
+	$urlmd5 = md5($urldata_decoded['url']);
 
 	$startedat = time();
-	while (time() - $startedat < 120) {
-		$confirmtime = $memcache->get("confirm-$user-$chromeid-$url");
+	while ((time() - $startedat) < $TIMEOUT) {
+		$confirmtime = $memcache->get("confirm-$user-$sendto-$urlmd5");
 		if ($confirmtime) {
+			debug("Got confirmation!");
 			send_and_close(json_encode($confirmtime));
-			$memcache->delete("confirm-$user-$chromeid-$url");
+			$memcache->delete("confirm-$user-$sendto-$urlmd5");
 			break;
 		} else {
+			debug("No confirmation yet.");
 			sleep(1);
 		}
 	}
