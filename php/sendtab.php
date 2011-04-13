@@ -2,8 +2,6 @@
 
 include "common.php";
 
-nocache();
-json();
 check_common_prereq();
 
 debug('_POST');
@@ -12,14 +10,14 @@ debug(var_export($_POST, true));
 // Get the ID of the chrome instance we are sending too
 $sendto = trim(@$_POST['sendto']);
 if (strlen($sendto) == 0) {
-	error("No sendto id!");
+	error($MALFORMED, "No sendto id!");
 }
 debug("Sending to '$sendto'");
 
 // Get the url data to send
 $urldata = trim($_POST['urldata']);
 if (strlen($urldata) == 0) {
-	error("No url data to send!");
+	error($MALFORMED, "No url data to send!");
 }
 
 // Decode the urldata json, and confirm that it's valid...
@@ -37,7 +35,7 @@ Was unable to decode the url data!
 	);
 
 	debug($json_errors[json_last_error()]);
-	exit();
+	error($MALFORMED, 'Unable to debug incoming JSON.');
 }
 debug("Incoming JSON decoded okay");
 debug("Decoded data:\n" . var_export($urldata_decoded, true));
@@ -54,14 +52,14 @@ while (true) {
 	debug("Memcache rejected add");
 
 	if ((time() - $startedat) > $TIMEOUT) {
-		error("Memcache add timed out!");
+		error($TIMEOUT, "Memcache add timed out!");
 	}
 }
 
 // Are we confirming a send tab?
 if (!@$urldata_decoded['confirm']) {
 	debug("No confirmation requested. Returning straight away.");
-	send_and_close(json_encode(-1));
+	$confirmtime = -1;
 } else {
 	$url = $urldata_decoded['url'];
 	$urlmd5 = md5($url);
@@ -74,7 +72,6 @@ if (!@$urldata_decoded['confirm']) {
 		$confirmtime = $memcache->get($key);
 		if ($memcache->getResultCode() == Memcached::RES_SUCCESS) {
 			debug("Got confirmation!");
-			send_and_close(json_encode($confirmtime));
 			$memcache->delete($key);
 			break;
 		} else {
@@ -83,3 +80,5 @@ if (!@$urldata_decoded['confirm']) {
 		}
 	}
 }
+
+jsonp_output(array('confirmed' => $confirmtime));

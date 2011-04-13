@@ -2,13 +2,8 @@
 
 include "common.php";
 
-nocache();
-json();
 debug('Got Request');
 check_common_prereq();
-
-// Are we confirming a send tab?
-$jsonp = trim(@$_GET['callback']);
 
 // Are we confirming a send tab?
 $confirmurl = trim(@$_GET['confirmurl']);
@@ -19,7 +14,7 @@ if (strlen($confirmurl) > 0) {
 	debug("Confirmed");
 }
 
-$result = "{}";
+$result = array();
 
 $startedat = time();
 while ((time() - $startedat) < $TIMEOUT) {
@@ -30,7 +25,7 @@ while ((time() - $startedat) < $TIMEOUT) {
 	$urldata = $memcache->get($key);
 	if ($memcache->getResultCode() == Memcached::RES_SUCCESS) {
 		if (strlen(trim($urldata)) > 0) {
-			$result = $urldata;
+			$result = json_decode($urldata, true);
 			$memcache->delete($key);
 			break;
 		}
@@ -39,9 +34,4 @@ while ((time() - $startedat) < $TIMEOUT) {
 		sleep(1);
 	}
 }
-
-if ($jsonp) {
-	$result = "$jsonp($result);";
-}
-send_and_close($result);
-
+jsonp_output($result);

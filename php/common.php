@@ -14,10 +14,6 @@ function nocache() {
 	header('Pragma: No-cache', false); # Special IE no-cache
 }
 
-function json() {
-	header('Content-Type: application/javascript');
-}
-
 function jsonp_decode($jsonp, $assoc = false) {
 	if($jsonp[0] !== '[' && $jsonp[0] !== '{') {
 		$jsonp = substr($jsonp, strpos($jsonp, '(')+1);
@@ -26,38 +22,48 @@ function jsonp_decode($jsonp, $assoc = false) {
 	return json_decode($jsonp, $assoc);
 }
 
-ob_start();
-function send_and_close($text) {
-        header('Connection: Close'); // Don't allow keep alive
-
-	echo $text;
-
-	$size = ob_get_length();
-	header("Content-Length: $size");
-
-	ob_end_flush();
-	ob_flush();
-	flush();
-
-	session_write_close();
-}
-
+$debug = array();
 function debug($msg) {
+	global $debug;
+
 	$msg_lines = explode("\n", "$msg");
 
 	$first = true;
 	foreach($msg_lines as $line) {
 		if ($first) {
-			echo '// ' . time() . ' ' . $line . "\n";
+			$debug[] = '// ' . time() . ' ' . $line . "\n";
 			$first = false;
 		} else {
-			echo '//            ' . $line . "\n";
+			$debug[] = '//            ' . $line . "\n";
 		}
 	}
 }
 
-function error($msg) {
-	send_and_close("error('$msg')");
+function jsonp_output($data, $callback = false) {
+	global $debug;
+
+	nocache();
+	header('Content-Type: application/javascript');
+	// Push in the debugging information
+	@$data['__debug'] = $debug;
+
+	// Extract callback from request?
+	if (!$callback) {
+		$callback = trim(@$_GET['callback']);
+	}
+
+	if ($callback)
+		echo "$callback(\n";
+	echo json_encode($data, JSON_FORCE_OBJECT);
+	if ($callback)
+		echo ");";
+}
+
+$LOGIN = 0;
+$MALFORMED = 1;
+$TIMEOUT = 2;
+function error($code, $msg) {
+	jsonp_output(array('code' => $code, 'message' => $msg), $callback='error');
 	exit();
 }
 
@@ -75,7 +81,7 @@ function check_common_prereq() {
 	// What is this chrome instance logged in as?
 	$user = trim(@$_COOKIE['BrowserSendTo-User']);
 	if (strlen($user) == 0) {
-		error("Not logged in!");
+		error($LOGIN, "Not logged in!");
 	}
 	debug("My user is '$user'");
 
@@ -85,7 +91,7 @@ function check_common_prereq() {
 	// Get the ID of this chrome instance
 	$chromeid = trim(@$_GET['id'] . @$_POST['id']);
 	if (strlen($chromeid) == 0) {
-		error("No chrome id!");
+		error($MALFORMED, "No chrome id!");
 	}
 	debug("My chrome ID is '$chromeid'");
 }
