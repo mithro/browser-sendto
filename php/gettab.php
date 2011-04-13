@@ -8,10 +8,11 @@ debug('Got Request');
 check_common_prereq();
 
 // Are we confirming a send tab?
-$confirmtab = @$_GET['urlmd5'];
-if (strlen(trim($confirmtab)) > 0) {
-	debug("Confirming $confirmtab");
-	$memcache->replace("confirm-$user-$chromeid-$confirmtab", time(), $MEMCACHE_TIMEOUT);
+$confirmtab = trim(@$_GET['urlmd5']);
+if (strlen($confirmtab) > 0) {
+	$key = "confirm-$user-$chromeid-$confirmtab";
+	debug("Confirming '$key'");
+	$memcache->set($key, time(), 0, $MEMCACHE_TIMEOUT);
 	debug("Confirmed");
 }
 
@@ -20,15 +21,16 @@ while ((time() - $startedat) < $TIMEOUT) {
 	// Register that this chrome instance is connected
 	$memcache->replace("lastseen-$user-$chromeid", time());
 
-	$urldata = $memcache->get("url-$user-$chromeid");
+	$key = "url-$user-$chromeid";
+	$urldata = $memcache->get($key);
 	if (strlen(trim($urldata)) > 0) {
 		debug("Got a url!");
 
 		send_and_close($urldata);
-		$memcache->delete("url-$user-$chromeid");
+		$memcache->delete($key);
 		break;
 	} else {
-		debug("No url yet, looking for 'url-$user-$chromeid'");
+		debug("No url yet, looking for '$key'");
 		sleep(1);
 	}
 }

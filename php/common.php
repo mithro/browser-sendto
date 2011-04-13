@@ -18,6 +18,14 @@ function json() {
 	header('Content-Type: application/json');
 }
 
+function jsonp_decode($jsonp, $assoc = false) {
+	if($jsonp[0] !== '[' && $jsonp[0] !== '{') {
+		$jsonp = substr($jsonp, strpos($jsonp, '(')+1);
+		$jsonp = substr($jsonp, 0, strrpos($jsonp, ')'));
+	}
+	return json_decode($jsonp, $assoc);
+}
+
 ob_start();
 function send_and_close($text) {
         header('Connection: Close'); // Don't allow keep alive
@@ -35,7 +43,17 @@ function send_and_close($text) {
 }
 
 function debug($msg) {
-	echo '// ' . time() . ' ' . $msg . "\n";
+	$msg_lines = explode("\n", "$msg");
+
+	$first = true;
+	foreach($msg_lines as $line) {
+		if ($first) {
+			echo '// ' . time() . ' ' . $line . "\n";
+			$first = false;
+		} else {
+			echo '//            ' . $line . "\n";
+		}
+	}
 }
 
 
@@ -44,19 +62,26 @@ $chromeid = null;
 function check_common_prereq() {
 	global $user, $chromeid;
 
+	debug('Got request!');
+
+	debug('_COOKIE:');
+	debug(var_export($_COOKIE, true));
+
 	// What is this chrome instance logged in as?
-	$user = @$_COOKIE['BrowserSendTo-User'];
-	if (strlen(trim($user)) == 0) { ?>
+	$user = trim(@$_COOKIE['BrowserSendTo-User']);
+	if (strlen($user) == 0) { ?>
 Not logged in!
 	<?php 
 		exit();
 	}
 	debug("My user is '$user'");
 
+	debug('_GET:');
+	debug(var_export($_GET, true));
 
 	// Get the ID of this chrome instance
-	$chromeid = @$_GET['id'] . @$_POST['id'];
-	if (strlen(trim($chromeid)) == 0) { ?>
+	$chromeid = trim(@$_GET['id'] . @$_POST['id']);
+	if (strlen($chromeid) == 0) { ?>
 No chrome id!
 	<?php
 		exit();
