@@ -1,21 +1,21 @@
 <?php
 
 function nocache() {
-	header('Cache-Control: no-cache');
-	header('Cache-Control: private');
-	header('Cache-Control: no-store');
-	header('Cache-Control: must-revalidate');
-	header('Cache-Control: max-stale=0');
-	header('Cache-Control: max-age=0');
-	header('Cache-Control: post-check=0');
-	header('Cache-Control: pre-check=0');
-	header('Keep-Alive: timeout=31, max=1');
-	header('Expires: Thu, 01 Jan 1970 00:00:00 GMT'); # Expire in the past
-	header('Pragma: No-cache'); # Special IE no-cache
+	header('Cache-Control: no-cache', false);
+	header('Cache-Control: private', false);
+	header('Cache-Control: no-store', false);
+	header('Cache-Control: must-revalidate', false);
+	header('Cache-Control: max-stale=0', false);
+	header('Cache-Control: max-age=0', false);
+	header('Cache-Control: post-check=0', false);
+	header('Cache-Control: pre-check=0', false);
+	header('Keep-Alive: timeout=31, max=1', false);
+	header('Expires: Thu, 01 Jan 1970 00:00:00 GMT', false); # Expire in the past
+	header('Pragma: No-cache', false); # Special IE no-cache
 }
 
 function json() {
-	header('Content-Type: application/json');
+	header('Content-Type: application/javascript');
 }
 
 function jsonp_decode($jsonp, $assoc = false) {
@@ -89,9 +89,9 @@ No chrome id!
 	debug("My chrome ID is '$chromeid'");
 }
 
-$memcache = new Memcache;
-$memcache->connect('localhost', 11211);
+$memcache = new Memcached();
+$memcache->addServer('localhost', 11211);
 
 $HOST = 'localhost';
 $TIMEOUT = 5;
-$MEMCACHE_TIMEOUT = 30;
+$MEMCACHE_TIMEOUT = 3000;

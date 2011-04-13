@@ -50,7 +50,9 @@ debug("Decoded data:\n" . var_export($urldata_decoded, true));
 $key = "url-$user-$sendto";
 debug("Adding data at '$key'");
 $startedat = time();
-while (!$memcache->add($key, $urldata, MEMCACHE_COMPRESSED, $MEMCACHE_TIMEOUT)) {
+do {
+	$memcache->add($key, $urldata, $MEMCACHE_TIMEOUT);
+
 	debug("Memcache rejected add");
 	sleep(1);
 
@@ -58,10 +60,10 @@ while (!$memcache->add($key, $urldata, MEMCACHE_COMPRESSED, $MEMCACHE_TIMEOUT)) 
 		debug("Memcache add timed out!");
 		exit();
 	}
-}
+} while ($m->getResultCode() != Memcached::RES_SUCCESS);
 
 // Are we confirming a send tab?
-if (!$urldata_decoded['confirm']) {
+if (!@$urldata_decoded['confirm']) {
 	debug("No confirmation requested. Returning straight away.");
 	send_and_close(json_encode(-1));
 } else {
@@ -74,7 +76,7 @@ if (!$urldata_decoded['confirm']) {
 	$startedat = time();
 	while ((time() - $startedat) < $TIMEOUT) {
 		$confirmtime = $memcache->get($key);
-		if ($confirmtime) {
+		if ($memcache->getResultCode() != Memcached::RES_NOTFOUND) {
 			debug("Got confirmation!");
 			send_and_close(json_encode($confirmtime));
 			$memcache->delete($key);
