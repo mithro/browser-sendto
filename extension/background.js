@@ -1,3 +1,7 @@
+function error(msg) {
+	alert(msg['message']);
+}
+
 /**
  * This function receives the tab's information and uses ajax to post it to the server.
  * This function is called in the background.html.
@@ -38,7 +42,7 @@ var lastrunat = 0;
 function getTab(incoming) {
 	lastrunat = time();
 
-	var outgoing = {'id': myID, 'callback': 'getTab'};
+	var outgoing = {'id': myID};
 	if (incoming && "url" in incoming) {
 		// Create the new tab!
 		console.log('Create tab - ' + incoming['url']);
@@ -54,8 +58,9 @@ function getTab(incoming) {
 	}
 
 	$.ajax({'url': getTabLocation,
-	        'dataType': 'script',
+	        'dataType': 'jsonp',
 		'data': outgoing}
+		).success(getTab
 		).error(restartGetTab);
 }
 

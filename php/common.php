@@ -43,7 +43,8 @@ function jsonp_output($data, $callback = false) {
 	global $debug;
 
 	nocache();
-	header('Content-Type: application/javascript');
+	//header('Content-Type: text/javascript; charset=utf-8');
+	header('Content-Type: text/jsonp; charset=utf-8');
 	// Push in the debugging information
 	@$data['__debug'] = $debug;
 
@@ -54,7 +55,7 @@ function jsonp_output($data, $callback = false) {
 
 	if ($callback)
 		echo "$callback(\n";
-	echo json_encode($data, JSON_FORCE_OBJECT);
+	echo json_encode($data, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP);
 	if ($callback)
 		echo ");";
 }
@@ -71,6 +72,7 @@ function error($code, $msg) {
 $user = null;
 $chromeid = null;
 function check_common_prereq() {
+	global $LOGIN;
 	global $user, $chromeid;
 
 	debug('Got request!');
