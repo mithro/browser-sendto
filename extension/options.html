@@ -1,0 +1,103 @@
+<html>
+	<head>
+		<title>Send To Options</title>
+		<script src='http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.js' type='text/javascript' charset='utf-8'></script>
+		<script src='common.js'></script>
+
+<script type='text/javascript'>
+
+function restoreOptions() {
+	var options = loadOptions();
+
+	$('#options input').each(function (index, element) {
+		element = $(element);
+		element.val(options[element.attr('name')]);
+	});
+
+	$('#chromeid').text(options['chromeid']);
+	$('#login').attr('src', loginLocation());
+}
+
+function saveOptions() {
+	var options = {};
+	$('#options input').each(function (index, element) {
+		element = $(element);
+		options[element.attr('name')] = element.val();
+	});
+	options['chromeid'] = $('#chromeid').text();
+
+	localStorage[extensionkey] = JSON.stringify(options);
+
+	// Send a message about update the options
+}
+
+$('options').submit(function() {
+	saveOptions();
+	return false;
+});
+
+</script>
+
+</head>
+<body onload='restoreOptions()'>
+
+<div>
+<iframe id='login' src=''></iframe>
+</div>
+
+<form id='options'>
+	<table>
+		<tr>
+			<td>Chrome Identifier:</td>
+			<td><span id='chromeid'></span></td>
+		</tr><tr>
+			<td>Name for Browser:</td>
+			<td><input name='name' type='text'></input></td>
+			<td class=help>
+				A useful name for this browser instance which
+				will be displayed in on other browsers.
+			</td>
+		</tr><tr>
+			<td>Server URL:</td>
+			<td><input name='serverurl' type='text'></input></td>
+			<td class=help>
+				The server which is used to sync. All chrome instances
+				much used the same server to sync between each other.
+			</td>
+		</tr><tr>
+			<td>Browser Icon:</td>
+			<td><input name='icon' type='text'></input></td>
+			<td class=help>
+				A useful picture to be used a reminder for this
+				browser instance when displayed in on other browsers.
+			</td>
+		</tr><tr>
+			<td>Sync Pinned Tabs:</td>
+			<td><input name='pinned' type='checkbox'></input></td>
+			<td class=help>
+				Keep your pinned tabs in sync between the
+				registered browser instances?
+			</td>
+		</tr><tr>
+			<td>Default Send To Destination:</td>
+			<td><input name='defaultto' type='text'></input></td>
+			<td class=help>
+				Where to send your tabs by default. If you
+				don't select a default, the interface will always ask.
+			</td>
+		</tr><tr>
+			<td>Close on send by default?</td>
+			<td><input name='defaultclose' type='checkbox'></input></td>
+			<td class=help>
+				Close tabs and keep your pinned tabs in sync between
+				the registered browser instances?
+			</td>
+		</tr><tr>
+			<td></td>
+			<td><button onclick='saveOptions();'>Save</button></td>
+		</tr>
+	</table>
+</form>
+
+</body>
+</html>

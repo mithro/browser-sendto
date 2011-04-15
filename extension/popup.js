@@ -22,4 +22,6 @@ function sendTab(sendto, close) {
 
 	// Inject a script to get the tabs information.
 	chrome.tabs.executeScript(null, {'code':code});
+
+	window.close()
 }

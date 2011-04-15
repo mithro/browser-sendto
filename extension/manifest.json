@@ -2,15 +2,17 @@
   "name": "Send To Chrome",
   "version": "1.0",
   "description": "Send a tab to another chrome instance.",
-  "browser_action": {
+  "page_action": {
     "default_icon": "icon.png",
+    "default_title": "Send page to ->",
     "popup": "popup.html"
   },
+  "options_page": "options.html",
   "background_page" : "background.html",
   "permissions": [
     "cookies",
     "tabs",
-    "http://*/*",
-    "https://*/*"
+    "notifications",
+    "<all_urls>"
   ]
 }

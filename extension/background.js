@@ -3,6 +3,15 @@ function error(msg) {
 }
 
 /**
+ *
+ */
+function showPageIcon(tabId, changeInfo, tab) {
+	chrome.pageAction.show(tabId);
+}
+// Listen for any changes to the URL of any tab.
+chrome.tabs.onUpdated.addListener(showPageIcon);
+
+/**
  * This function receives the tab's information and uses ajax to post it to the server.
  * This function is called in the background.html.
  */
@@ -24,8 +33,8 @@ chrome.extension.onConnect.addListener(function(port) {
 
 			var jsontext = JSON.stringify(jsondata);
 			console.log(jsontext);
-			$.post(sendTabLocation, {
-				'id': myID, 
+			$.post(sendTabLocation(), {
+				'id': myID(), 
 				'urldata': jsontext, 
 				'sendto': jsondata['sendto'],
 				'cookie': cookie()}
@@ -42,7 +51,7 @@ var lastrunat = 0;
 function getTab(incoming) {
 	lastrunat = time();
 
-	var outgoing = {'id': myID};
+	var outgoing = {'id': myID()};
 	if (incoming && "url" in incoming) {
 		// Create the new tab!
 		console.log('Create tab - ' + incoming['url']);
@@ -57,7 +66,7 @@ function getTab(incoming) {
 		errors += 1;
 	}
 
-	$.ajax({'url': getTabLocation,
+	$.ajax({'url': getTabLocation(),
 	        'dataType': 'jsonp',
 		'data': outgoing}
 		).success(getTab
