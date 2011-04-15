@@ -15,7 +15,6 @@ function restoreOptions() {
 	});
 
 	$('#chromeid').text(options['chromeid']);
-	$('#login').attr('src', loginLocation());
 }
 
 function saveOptions() {
@@ -41,13 +40,21 @@ $('options').submit(function() {
 </head>
 <body onload='restoreOptions()'>
 
-<div>
-<iframe id='login' src=''></iframe>
-</div>
-
 <form id='options'>
 	<table>
 		<tr>
+			<td>Username:</td>
+			<td><input name='username' type='text'></input></td>
+			<td class=help>
+				Username used to log into the server.
+			</td>
+		</tr><tr>
+			<td>Password:</td>
+			<td><input name='password' type='password'></input></td>
+			<td class=help>
+				Password used to log into the server.
+			</td>
+		</tr><tr>
 			<td>Chrome Identifier:</td>
 			<td><span id='chromeid'></span></td>
 		</tr><tr>

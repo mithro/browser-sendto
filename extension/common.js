@@ -11,11 +11,13 @@ function guid() {
 var defaults = {
 	'chromeid': guid(),
 	'name': 'My chrome browser',
-	'serverurl': 'http://localhost/',
+	'serverurl': 'http://localhost:8080',
 	'icon': '',
 	'pinned': false,
 	'defaultto': '',
 	'defaultclose': false,
+	'username': '',
+	'password': '',
 	};
 
 function loadOptions() {
@@ -25,26 +27,10 @@ function loadOptions() {
 	return defaults;
 }
 
-function sendTabLocation() {
-	return loadOptions()['serverurl'] + '/sendtab.php';
-}
-
-function getTabLocation() {
-	return loadOptions()['serverurl'] + '/gettab.php';
-}
-
-function loginLocation() {
-	return loadOptions()['serverurl'] + '/login.php';
-}
-
 function myID() {
 	return loadOptions()['chromeid'];
 }
 
 function time() {
 	return Math.round((new Date()).getTime() / 1000);
-}
-
-function cookie() {
-	return Math.floor(Math.random()*1e6);
 }

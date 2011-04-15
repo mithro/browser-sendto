@@ -5,16 +5,20 @@
 function sendTab(sendto, close) {
 	console.log('sendTab ' + sendto + ' ' + close);
 
+	sendto = myID();
+
 	// Send the URL and cookie data to the sendTab function.
 	code = '' +
 		'var jsondata = {'+
 		'	"sendto": "'+sendto+'",'+
-		'	"url": document.URL,'+
-		'	"cookies": document.cookie'+
+		'	"urldata": {' +
+		'		"url": document.URL,'+
+		'		"cookies": document.cookie'+
+		'	}'+
 		'};';
 	if (close){
 		code = code +
-		'jsondata["confirm"] = true;';
+			'jsondata["confirm"] = true;';
 	}
 	code = code +
 		'chrome.extension.connect().postMessage(jsondata);';
@@ -23,5 +27,5 @@ function sendTab(sendto, close) {
 	// Inject a script to get the tabs information.
 	chrome.tabs.executeScript(null, {'code':code});
 
-	window.close()
+	//window.close()
 }
