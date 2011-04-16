@@ -5,8 +5,6 @@
 function sendTab(sendto, close) {
 	console.log('sendTab ' + sendto + ' ' + close);
 
-	sendto = myID();
-
 	// Send the URL and cookie data to the sendTab function.
 	code = '' +
 		'var jsondata = {'+
@@ -27,5 +25,5 @@ function sendTab(sendto, close) {
 	// Inject a script to get the tabs information.
 	chrome.tabs.executeScript(null, {'code':code});
 
-	//window.close()
+	window.close()
 }

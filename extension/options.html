@@ -17,7 +17,7 @@ function restoreOptions() {
 	$('#chromeid').text(options['chromeid']);
 }
 
-function saveOptions() {
+function updateOptions() {
 	var options = {};
 	$('#options input').each(function (index, element) {
 		element = $(element);
@@ -25,15 +25,8 @@ function saveOptions() {
 	});
 	options['chromeid'] = $('#chromeid').text();
 
-	localStorage[extensionkey] = JSON.stringify(options);
-
-	// Send a message about update the options
+	saveOptions(options);
 }
-
-$('options').submit(function() {
-	saveOptions();
-	return false;
-});
 
 </script>
 
@@ -101,7 +94,7 @@ $('options').submit(function() {
 			</td>
 		</tr><tr>
 			<td></td>
-			<td><button onclick='saveOptions();'>Save</button></td>
+			<td><button onclick='updateOptions();'>Save</button></td>
 		</tr>
 	</table>
 </form>
