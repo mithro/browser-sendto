@@ -143,25 +143,25 @@ class BrowserInstance(db.Model):
 		return hashlib.sha1(self.details2key(self.userid, self.chromeid)).hexdigest()
 
 
-class BrowserPinnedTabs(db.Model):
+class BrowserPinnedTab(db.Model):
 	userid = db.StringProperty(required=True)
-	window = db.StringProperty(required=True)
-	tabs = db.StringListProperty(required=True)
+	remoteid = db.StringProperty(required=True)
+	data = db.JSONProperty(required=False)
 
 	@classmethod
-	def details2key(cls, userid, window):
-		return 'pinned(%s, window=)' % (userid, window)
+	def details2key(cls, userid, remoteid):
+		return 'pinned(%s, remoteid=%s)' % (userid, remoteid)
 
 	@property
 	def pinnedid(self):
-		return self.details2key(self.userid, self.window)
+		return self.details2key(self.userid, self.remoteid)
 
 	@classmethod
-	def create(cls, userid, window):
+	def create(cls, userid, remoteid):
 		obj = cls.get(userid, window)
 		if not obj:
-	    		obj = cls(key_name=cls.details2key(userid, window),
-			          userid=userid, window=window, tabs=[])
+	    		obj = cls(key_name=cls.details2key(userid, remoteid),
+			          userid=userid, remoteid=remoteid, tabs=[])
 		return obj
 
 	@classmethod
@@ -178,7 +178,7 @@ class BrowserPinnedTabs(db.Model):
 	def put(self, *args, **kw):
 		pickleobj = pickle.dumps(self)
 		memcache.set(
-			self.details2key(self.userid, self.window),
+			self.details2key(self.userid, self.remoteid),
 			pickleobj)
 
 		return db.Model.put(self, *args, **kw)

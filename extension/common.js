@@ -44,6 +44,43 @@ function loadOptions() {
 	return JSON.parse(localStorage[extensionKey('options')]);
 }
 
+
+function saveUrlMap(data) {
+	localStorage[extensionKey('urlmap')] = JSON.stringify(data);
+}
+
+function loadUrlMap() {
+	if (!(extensionKey('urlmap') in localStorage) || $.trim(localStorage).length == 0) {
+		return {};
+	}
+	return JSON.parse(localStorage[extensionKey('urlmap')]);
+}
+
+function updateUrlMap(remoteid, url) {
+	deleteUrlMap(remoteid);
+
+	var url2remoteid = loadUrlMap();
+	if (!(url in url2remoteid)) {
+		url2remoteid[url] = [];
+	}
+	url2remoteid[url].push(remoteid);
+}
+
+function deleteUrlMap(remoteid) {
+	var url2remoteid = loadUrlMap();
+	for(var url in url2remoteid) {
+		for (var i in url2remoteid[url]) {
+			if (url2remoteid[url][i] != remoteid)
+				continue;
+
+			delete url2remoteid[i];
+		}
+	}
+	saveUrlMap(url2remoteid);
+}
+
+
+
 function saveBrowsers(data) {
 	// Don't save ourselves
 	var options = loadOptions();

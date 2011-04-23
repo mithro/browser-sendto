@@ -29,153 +29,119 @@ chrome.extension.onConnect.addListener(function(port) {
 });
 
 
-/*
+function sendOp(data) {
+	data['time']  = time();
 
-var pinnedTabs = {windowid: [
- tab0, tab1, tab2]};
+	for (var i in pendingOps) {
+		var op = pendingOps[i];
+		if (op['action'] == 'create')
+			continue;
 
-*/
-var pinnedTabs = null;
-
-function createTabStub(winid, index, tabid) {
-	console.log('createstub -', winid, index, tabid);
-
-	var data = {'localid': tabid};
-	if (!(winid in pinnedTabs)) {
-		pinnedTabs[winid] = [data];
-	} else {
-		pinnedTabs[winid].splice(index, 0, data);
-	}
-}
-function moveTab(winid, from, to) {
-	console.log('movetab -', winid, from, to);
-	if (!(winid in pinnedTabs) || from >= pinnedTabs[winid].length) {
-		return;
-	}
-	data = pinnedTabs[winid][from];
-	pinnedTabs[winid].splice(from, 1);
-	pinnedTabs[winid].splice(to, 0, data);
-
-}
-function updateTab(tab) {
-	console.log('updatetab -', tab, tab.index);
-	var newdata = {
-		'title': tab.title,
-		'url': tab.url,
-		'favicon': tab.favIconUrl,
-	};
-	var currentdata = pinnedTabs[tab.windowId][tab.index];
-
-	assert(tab.id == currentdata['localid']);
-
-	for (var key in newdata) {
-		currentdata[key] = newdata[key];
-	}
-}
-function deleteTab(tabId) {
-	console.log('deletetab -', tabId);
-	for(var winid in pinnedTabs) {
-		var tabs = pinnedTabs[winid];
-		for (var i in tabs) {
-			if (tabs[i]['localid'] == tabId) {
-				tabs.splice(i, 1);
-				break;
+		if (op['remoteid'] == data['remoteid']) {
+			if (data['action'] == 'create') {
+				data['action'] = 'update';
 			}
+			delete pendingOps[i];
 		}
-		if (tabs.length == [0]) {
-			delete pinnedTabs[winid];
-		}
-	}	
+	}
+
+	pendingOps.push(data);
+	window.setTimeout(1e3, actuallySendOp);
 }
 
-chrome.tabs.onAttached.addListener(function(tabId, attachInfo) {
-	console.log('attached -', tabId, attachInfo);
-	if (!pinnedTabs)
-		return;
-
-	var winid = attachInfo['newWindowId'];
-	var index = attachInfo['newPosition'];
-
-	if (!(winid in pinnedTabs) ||
-		(index >= pinnedTabs[winid].length)) {
-		
-		createTabStub(winid, index, tabId);
+function actuallySendOp() {
+	for (var i in pendingOps) {
+		var op = pendingOps[i];
+		if (time() - op['time'] > 1) {
+			forward_channel.sendMessage('pin'+op['action'], op);
+			delete pendingOps[i];
+		}
 	}
+}
 
-	chrome.tabs.get(tabId, function(tab) {
-		updateTab(tab);
-	});
-});
+var tabid2remoteid = {};
+var tabdata = {};
+var pendingOps = [];
 
-chrome.tabs.onCreated.addListener(function(tab) {
-	console.log('created -', tab.id, tab);
-	if (!pinnedTabs)
-		return;
+chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+	var remoteid = null;
+	if (tabId in tabid2remoteid) {
+		remoteid = tabid2remoteid[tabId];
+		if (!tab.pinned) {
+			console.log((new Date()).getTime(), 'delete -', tabId, changeInfo, tab);
+			sendOp({'action': 'delete', 'localid': tabId, 'remoteid': remoteid});
 
-	if (tab.pinned) {
-		createTabStab(tab.windowId, tab.index, tab.id);
-		updateTab(tab);
+			deleteUrlMap(remoteid);
+			delete tabid2remoteid[tabId];
+			delete tabdata[tabId];
+			return;
+		} else {
+			console.log((new Date()).getTime(), 'update -', tabId, changeInfo, tab);
+			sendOp({'action': 'update', 'localid': tabId, 'remoteid': remoteid, 'url': tab.url});
+		}
+	} else {
+		if (!tab.pinned)
+			return;
+
+		console.log((new Date()).getTime(), 'create -', tabId, changeInfo, tab);
+		remoteid = guid();
+		sendOp({'action': 'create', 'localid': tabId, 'remoteid': remoteid, 'url': tab.url});
 	}
-});
+	tabid2remoteid[tabId] = remoteid;
+	tabdata[tabId] = tab;
 
-chrome.tabs.onDetached.addListener(function(tabId, detachInfo) {
-	console.log('detached -', tabId, detachInfo);
-	if (!pinnedTabs)
-		return;
-
-	deleteTab(tabId);
+	updateUrlMap(remoteid, tab.url);
 });
 
 chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
-	console.log('removed -', tabId, removeInfo);
-	if (!pinnedTabs)
-		return;
+	if (tabId in tabid2remoteid) {
+		var remoteid = tabid2remoteid[tabId];
+		var tab = tabdata[tabId];
 
-	deleteTab(tabId);
-});
+		// Check if there is a pending create op
+		var deleteOp = true;
+		for (var i in pendingOps) {
+			var pendingOp = pendingOps[i];
 
-chrome.tabs.onMoved.addListener(function(tabId, moveInfo) {
-	console.log('moved -', tabId, moveInfo, tab);
-	if (!pinnedTabs)
-		return;
+			if (pendingOp['url'] == tab['url'] && pendingOp['action'] == "create") {
+				console.log((new Date()).getTime(), 'changing create to update');
 
-	var winid = moveInfo['windowId'];
-	var fromindex = moveInfo['fromIndex'];
+				// Delete the created mapping values
+				deleteUrlMap(pendingOp['remoteid']);
+				delete tabid2remoteid[pendingOp['localid']];
 
-	if ((winid in pinnedTabs) && (fromindex < pinnedTabs[winid].length)) {
-		moveTab(winid, fromindex, moveInfo['toIndex']);
-	}
-});
+				// Rewrite the pending op
+				pendingOp['action'] = 'update';
+				pendingOp['remoteid'] = remoteid;
+				deleteOp = false;
 
-chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-	console.log('updated -', tabId, changeInfo, tab);
-	if (!pinnedTabs)
-		return;
+				// Update the mappings
+				updateUrlMap(remoteid, pendingOp['url']);
+				tabid2remoteid[pendingOp['localid']] = remoteid;
 
-	
-	var winid = tab.windowId;
-	var index = tab.index;
-
-	if (tab.pinned) {
-		if ((winid in pinnedTabs) &&
-			(index < pinnedTabs[winid].length)) {
-			updateTab(tab);
-		} else {
-			// Create a new tab
-			createTabStub(winid, index, tabId);
-			updateTab(tab);
+				break;
+			}
 		}
-	} else if ((winid in pinnedTabs) &&
-			(index <= pinnedTabs[winid].length)) {
-		deleteTab(tabId);
+
+		// Else, issue a delete op
+		if (deleteOp) {
+			console.log((new Date()).getTime(), 'remove');
+
+			sendOp({'action': 'delete', 'remoteid': remoteid});
+			deleteUrlMap(remoteid);
+		}
+
+		// Clean Up
+		delete tabid2remoteid[tabId];
+		delete tabdata[tabId];
 	}
 });
 
-
-function getLocalTabs() {
-	pinnedTabs = {};
+function restoreSession() {
 	chrome.windows.getAll({'populate': true}, function (windows) {
-		console.log('windows', windows);
+		// Make a deep copy
+		var url2remoteid = loadUrlMap();
+
 		for(var i in windows) {
 			var win = windows[i];
 			// Skip non-normal windows
@@ -190,12 +156,18 @@ function getLocalTabs() {
 				var tab = win.tabs[j];
 
 				if (tab.pinned) {
-					createTabStub(tab.windowId, tab.index, tab.id);
-					updateTab(tab);
+					var remoteid = null;
+
+					if (tab.url in url2remoteid)
+						remoteid = url2remoteid[tab.url].pop();
+					if (!remoteid)
+						remoteid = guid();
+
+					tabid2remoteid[tab.id] = remoteid;
+					tabdata[tab.id] = tab;
 				}
 			}
 		}
-		console.log('getLocalTabs', pinnedTabs);
 	});
 }
 
@@ -207,6 +179,46 @@ Callbacks.prototype.onLoginNeeded = function(data) {
 	var options = loadOptions();
 	forward_channel.sendMessage('login', options);
 };
+Callbacks.prototype.onPinCreate = function(data) {
+	console.log('callback pin create ', data);
+	chrome.tabs.create({'url': data['url'], 'pinned': true}, function(tab) {
+		updateUrlMap(remoteid, tab.url);
+		tabid2remoteid[tab.id] = data['remoteid'];
+		tabdata[tab.id] = tab;
+	});
+};
+Callbacks.prototype.onPinDelete = function(data) {
+	console.log('callback pin delete ', data);
+
+	for (var tabid in tabid2remoteid) {
+		var remoteid = tabid2remoteid[tabid];
+
+		if (remoteid == data['remoteid']) {
+			chrome.tabs.remove(tabid, function() {
+				deleteUrlMap(remoteid);
+				delete tabid2remoteid[tabid];
+				delete tabdata[tabid];
+			});
+			break;
+		}
+	}
+};
+Callbacks.prototype.onPinUpdate = function(data) {
+	console.log('callback pin update ', data);
+
+	for (var tabid in tabid2remoteid) {
+		var remoteid = tabid2remoteid[tabid];
+
+		if (remoteid == data['remoteid']) {
+			chrome.tabs.update(tabid, {'url': data['url']}, function(tab) {
+				updateUrlMap(remoteid, data['url']);
+				tabdata = tab;
+			});
+			break;
+		}
+	}
+};
+
 Callbacks.prototype.onUpdateBrowsers = function(data) {
 	console.log('callback updatebrowsers ', data);
 	saveBrowsers(data);
@@ -363,5 +375,5 @@ function setupChannels() {
 	// Get everything moving
 	forward_channel.ping();
 
-	getLocalTabs();	
+	restoreSession();
 }

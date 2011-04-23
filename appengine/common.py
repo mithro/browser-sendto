@@ -6,10 +6,11 @@ import hashlib
 import time
 import traceback
 
-from google.appengine.ext import webapp
 from google.appengine.api import channel
-from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import memcache
+from google.appengine.ext import webapp
+from google.appengine.ext import db
+from google.appengine.ext.webapp.util import run_wsgi_app
 
 from django.utils import simplejson as json
 
@@ -49,7 +50,10 @@ class JSONHandler(webapp.RequestHandler):
 			if instance.chromeid == self.chromeid:
 				continue
 			logging.info('(%s) Sending %s to %s on %s' % (self.chromeid, method, instance.chromeid, instance.channel))
-			self.callone(instance, method, args)
+			try:
+				self.callone(instance, method, args)
+			except channel.InvalidChannelClientIdError, e:
+				logging.error('Tried to send to %s but it failed.. :(', instance)
 
 	def return_callone(self, method, args):
 		self.return_call([(method, args),])
@@ -212,97 +216,45 @@ class ConfirmTabHandler(JSONHandler):
 		self.callone(sendinstance, 'ConfirmedTab', 
 				  {'from': self.chromeid, 'seqnum': seqnum})
 
-class CreatePinHandler(JSONHandler):
-	def json(self, index=None, data=None):
-		assert index
-		assert data
+class PinCreateHandler(JSONHandler):
+	def json(self, **kw):
+		assert 'remoteid' in kw
 
-		models.BrowserPinnedTab(userid=self.userid, index=index, data=data)
-
-		instances = models.BrowserInstance.all()
-		instances.filter('userid =', self.userid)
-
-		for instance in instances.fetch():
-			self.callone(instance, 'CreatePinTab', data)
-
-class CreatePinHandler(JSONHandler):
-	def json(self, index=None, data=None):
-		assert index
-		assert data
-
-		data['remoteid'] = User.newsalt()
-
-		pinned = models.BrowserPinnedTab.create(userid=self.userid)
-		pinned.tabs.insert(index, data)
+		pinned = models.BrowserPinnedTab(userid=self.userid, remoteid=kw['remoteid'], data=kw)
 		pinned.put()
 
-		data['index'] = index
-		self.callall('CreatePinTab', data)
-		self.return_callone('UpdatePinTab', data)
+		self.callall('PinCreate', kw)
 
 
-class DeletePinHandler(JSONHandler):
-	def json(self, tabid=None, window=None, index=None):
-		assert tabid
-		assert window
-		assert index
-		assert data
+class PinDeleteHandler(JSONHandler):
+	def json(self, **kw):
+		assert 'remoteid' in kw
 
-		pinned = models.BrowserPinnedTab.create(userid=self.userid, window=window)
-		assert pinned.tabs[index] == tabid
-		del pinned.tabs[index]
-		pinned.put()
-
-		data['index'] = index
-		self.callall('DeletePinTab', data)
-
-class DeletePinHandler(JSONHandler):
-	def json(self, tabid=None, window=None, index=None):
-		assert tabid
-		assert window
-		assert index
-
-		pinned = models.BrowserPinnedTab.create(userid=self.userid, window=window)
-		assert pinned.tabs[index] == tabid
-		del pinned.tabs[index]
-		pinned.put()
-
-		data['index'] = index
-		self.callall('DeletePinTab', data)
+		q = models.BrowserPinnedTab.all(keys_only=True)
+		q.filter('userid =', self.userid)
+		q.filter('remoteid =', kw['remoteid'])
+		db.delete(q.fetch(limit=1))
+		
+		self.callall('PinDelete', kw)
 
 
-class UpdatePinHandler(JSONHandler):
-	def json(self, tabid=None, window=None, index=None, data=None):
-		assert tabid
-		assert index
-		assert window
-		assert data
+class PinUpdateHandler(JSONHandler):
+	def json(self, **kw):
+		assert 'remoteid' in kw
 
-		pinned = models.BrowserPinnedTab.create(userid=self.userid, window=window)
-		assert pinned.tabs[index] == tabid
-		pinned.tabs[index] = data
-		pinned.put()
+		q = models.BrowserPinnedTab.all()
+		q.filter('userid =', self.userid)
+		q.filter('remoteid =', kw['remoteid'])
+		pinned = q.fetch(limit=1)
 
-		data['index'] = index
-		self.callall('UpdatePinTab', data)
+		if not pinned:
+			self.return_callone('PinDelete', kw)
+			return
 
+		pinned[0].data = kw
+		pinned[0].put()
 
-class MovePinHandler(JSONHandler):
-	def json(self, tabid=None, oldindex=None, newindex=None, window=None):
-		assert tabid
-		assert oldindex
-		assert newindex
-
-		pinned = models.BrowserPinnedTab.create(userid=self.userid, window=window)
-		assert pinned.tabs[oldindex] == tabid
-
-		data = pinned.tabs[oldindex]
-		del pinned.tabs[oldindex]
-		pinned.tabs.insert(newindex, data)
-
-		pinned.put()
-
-		self.callall('MovePinTab', data)
+		self.callall('PinUpdate', kw)
 
 
 
@@ -311,10 +263,9 @@ application = webapp.WSGIApplication([
     ('/login', LoginHandler),
     ('/sendtab', SendTabHandler),
     ('/confirmtab', ConfirmTabHandler),
-    ('/createpin', CreatePinHandler),
-    ('/deletepin', DeletePinHandler),
-    ('/updatepin', UpdatePinHandler),
-    ('/movepin', MovePinHandler),
+    ('/pincreate', PinCreateHandler),
+    ('/pindelete', PinDeleteHandler),
+    ('/pinupdate', PinUpdateHandler),
 ], debug=True)
 
 
